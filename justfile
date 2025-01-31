@@ -56,7 +56,7 @@ cleanup-devnet:
 
 # Creates a new local devnet
 create-devnet:
-    kurtosis run github.com/ethpandaops/optimism-package \
+    kurtosis run ../optimism-package \
         --args-file {{ devnet-config-file }} \
         --enclave {{ enclave }}
 
@@ -71,6 +71,7 @@ generate-fixture:
     forge script \
         --non-interactive \
         --password="" \
+        --odyssey \
         --rpc-url $L2_RPC_URL \
         --account {{ account }} \
         --broadcast \
@@ -100,9 +101,9 @@ generate-fixture:
         --op-program {{ op-program }} \
         --l2-block $L2_BLOCK_NUM \
         --l1-block $L1_BLOCK_NUM \
-        --l1-rpc-url {{ "http://" + shell("kurtosis service inspect " + enclave + " el-1-geth-lighthouse | grep -- ' rpc: ' | sed 's/.*-> //'") }} \
+        --l1-rpc-url {{ "http://" + shell("kurtosis service inspect " + enclave + " el-1-reth-lighthouse | grep -- ' rpc: ' | sed 's/.*-> //'") }} \
         --l2-rpc-url $L2_RPC_URL \
-        --beacon-url {{ shell("kurtosis service inspect " + enclave + " cl-1-lighthouse-geth | grep -- ' http: ' | sed 's/.*-> //'") }} \
+        --beacon-url {{ shell("kurtosis service inspect " + enclave + " cl-1-lighthouse-reth | grep -- ' http: ' | sed 's/.*-> //'") }} \
         --rollup-url $ROLLUP_URL \
         --rollup-path {{ rollup-path }} \
         --genesis-path {{ genesis-path }} \

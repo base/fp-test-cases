@@ -25,19 +25,20 @@ futures = "0.3"
 clap = { version = "4", features = ["derive"] }
 shellwords = "1"
 reqwest = { version = "0.12", features = ["stream"] }
-tracing-subscriber = "0.3.18"
+tracing-subscriber = "0.3.19"
 byteorder = "1.5.0"
 
 # Alloy Dependencies
 alloy-primitives = { version = "0.8" }
-alloy-eips = { version = "0.3" }
+alloy-eips = { version = "0.9.2" }
 alloy-provider = { version = "0.2" }
+maili-registry = "0.1.9"
+maili-protocol = "0.1.9"
+maili-genesis = "0.1.9"
 
 # OP Types
-superchain-registry = "0.3.4"
-superchain-primitives = "0.3.4"
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona", version = "0.0.2", features = ["online"] }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", version = "0.0.3", features = ["online"] }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "c017eeaf0d875321bc9cb2c3139b460c785ffeb8" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "c017eeaf0d875321bc9cb2c3139b460c785ffeb8" }
 
 # Internal
 fp-test-fixtures = { path = "crates/fp-test-fixtures" }

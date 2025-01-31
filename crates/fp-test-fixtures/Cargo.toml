@@ -19,7 +19,8 @@ color-eyre.workspace = true
 alloy-primitives.workspace = true
 
 # OP Types
-superchain-primitives.workspace = true
+maili-registry.workspace = true
+maili-genesis.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

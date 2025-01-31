@@ -1,4 +1,4 @@
-use alloy_eips::eip1559::BaseFeeParams;
+use alloy_eips::{eip1559::BaseFeeParams, BlockNumHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{Provider, ReqwestProvider};
 use byteorder::{BigEndian, ReadBytesExt};
@@ -135,6 +135,12 @@ pub struct RollupConfig {
     /// The granite activation time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub granite_time: Option<u64>,
+    /// The holocene activation time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holocene_time: Option<u64>,
+    /// The isthmus activation time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isthmus_time: Option<u64>,
     /// The interop activation time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interop_time: Option<u64>,
@@ -152,8 +158,8 @@ pub struct RollupConfig {
     pub da_challenge_address: Option<Address>,
 }
 
-impl From<&superchain_primitives::RollupConfig> for RollupConfig {
-    fn from(cfg: &superchain_primitives::RollupConfig) -> Self {
+impl From<&maili_genesis::RollupConfig> for RollupConfig {
+    fn from(cfg: &maili_genesis::RollupConfig) -> Self {
         let syscfg = cfg.genesis.system_config.clone().unwrap();
         let genesis = Genesis {
             l1: cfg.genesis.l1.into(),
@@ -181,35 +187,35 @@ impl From<&superchain_primitives::RollupConfig> for RollupConfig {
             ecotone_time: cfg.ecotone_time,
             fjord_time: cfg.fjord_time,
             granite_time: cfg.granite_time,
+            holocene_time: cfg.holocene_time,
+            isthmus_time: cfg.isthmus_time,
             interop_time: None,
             batch_inbox_address: cfg.batch_inbox_address,
             deposit_contract_address: cfg.deposit_contract_address,
             l1_system_config_address: cfg.l1_system_config_address,
             protocol_versions_address: Some(cfg.protocol_versions_address),
             da_challenge_address: cfg.da_challenge_address,
-            // da_challenge_window: 0,
-            // da_resolve_window: 0,
-            // use_plasma: false,
         };
         rollup_config
     }
 }
 
-impl Into<superchain_primitives::RollupConfig> for RollupConfig {
-    fn into(self) -> superchain_primitives::RollupConfig {
-        superchain_primitives::RollupConfig {
-            genesis: superchain_primitives::ChainGenesis {
+impl Into<maili_genesis::RollupConfig> for RollupConfig {
+    fn into(self) -> maili_genesis::RollupConfig {
+        maili_genesis::RollupConfig {
+            genesis: maili_genesis::ChainGenesis {
                 l1: self.genesis.l1.into(),
                 l2: self.genesis.l2.into(),
                 l2_time: self.genesis.l2_time,
-                extra_data: None,
-                system_config: Some(superchain_primitives::SystemConfig {
+                system_config: Some(maili_genesis::SystemConfig {
                     batcher_address: self.genesis.system_config.batcher_addr,
                     overhead: self.genesis.system_config.overhead.into(),
                     scalar: self.genesis.system_config.scalar.into(),
                     gas_limit: self.genesis.system_config.gas_limit,
                     base_fee_scalar: None,
                     blob_base_fee_scalar: None,
+                    eip1559_denominator: None,
+                    eip1559_elasticity: None,
                 }),
             },
             block_time: self.block_time,
@@ -220,14 +226,16 @@ impl Into<superchain_primitives::RollupConfig> for RollupConfig {
             l1_chain_id: u64::try_from(self.l1_chain_id.unwrap_or(0)).unwrap(),
             l2_chain_id: u64::try_from(self.l2_chain_id.unwrap_or(0)).unwrap(),
             base_fee_params: BaseFeeParams::optimism(),
-            canyon_base_fee_params: Some(BaseFeeParams::optimism_canyon()),
+            canyon_base_fee_params: BaseFeeParams::optimism_canyon(),
             regolith_time: self.regolith_time,
             canyon_time: self.canyon_time,
             delta_time: self.delta_time,
             ecotone_time: self.ecotone_time,
             fjord_time: self.fjord_time,
             granite_time: self.granite_time,
-            holocene_time: None,
+            holocene_time: self.holocene_time,
+            isthmus_time: self.isthmus_time,
+            interop_time: self.interop_time,
             batch_inbox_address: self.batch_inbox_address,
             deposit_contract_address: self.deposit_contract_address,
             l1_system_config_address: self.l1_system_config_address,
@@ -253,17 +261,17 @@ pub struct BlockID {
     pub number: u64,
 }
 
-impl Into<superchain_primitives::BlockID> for BlockID {
-    fn into(self) -> superchain_primitives::BlockID {
-        superchain_primitives::BlockID {
+impl Into<BlockNumHash> for BlockID {
+    fn into(self) -> BlockNumHash {
+        BlockNumHash{
             hash: self.hash,
             number: self.number,
         }
     }
 }
 
-impl From<superchain_primitives::BlockID> for BlockID {
-    fn from(id: superchain_primitives::BlockID) -> Self {
+impl From<BlockNumHash> for BlockID {
+    fn from(id: BlockNumHash) -> Self {
         Self {
             hash: id.hash,
             number: id.number,

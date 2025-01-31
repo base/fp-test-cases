@@ -1,5 +1,6 @@
 //! From Op Program Subcommand
 
+use crate::cmd::util::RollupConfig;
 use alloy_primitives::hex::FromHex;
 use alloy_primitives::BlockHash;
 use alloy_primitives::{hex::ToHexExt, B256};
@@ -8,7 +9,10 @@ use color_eyre::{eyre::eyre, Result};
 use fp_test_fixtures::{
     self, ChainDefinition, FaultProofFixture, FaultProofInputs, FaultProofStatus, Genesis,
 };
-use kona_derive::online::*;
+use kona_derive::traits::ChainProvider;
+use kona_providers_alloy::*;
+use maili_protocol::BatchValidationProvider;
+use maili_registry::ROLLUP_CONFIGS;
 use reqwest::Url;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -18,10 +22,7 @@ use std::{
     io::{stderr, stdout},
     path::PathBuf,
 };
-use superchain_registry::ROLLUP_CONFIGS;
 use tracing::{debug, error, info, trace};
-
-use crate::cmd::util::RollupConfig;
 
 use super::util::{RollupProvider, SafeHeadResponse};
 
@@ -179,6 +180,9 @@ impl FromOpProgram {
         output_dir.read_dir()?.try_for_each(|entry| -> Result<()> {
             let entry = entry?;
             let prefix = entry.path();
+            if !prefix.is_dir() {
+                return Ok(());
+            }
             debug!(target: TARGET, "Found dir: {:?}", prefix);
             if !prefix.is_dir() {
                 return Ok(());
@@ -242,7 +246,7 @@ impl FromOpProgram {
     /// Returns a new [AlloyL2ChainProvider] using the l2 rpc url.
     pub fn l2_provider(
         &self,
-        cfg: Arc<superchain_primitives::RollupConfig>,
+        cfg: Arc<maili_genesis::RollupConfig>,
     ) -> Result<AlloyL2ChainProvider> {
         Ok(AlloyL2ChainProvider::new_http(self.l2_rpc_url()?, cfg))
     }

@@ -28,6 +28,8 @@ contract Precompiler {
             revert("KZG Point Evaluation not implemented, as this precompile is accelerated by the FPVM");
         } else if (index == 0x100) {
             run_p256Verify(gas_target);
+        } else if (index == 0x0b) {
+            run_g1add(gas_target);
         } else {
             // Invalid index
             revert("Invalid index");
@@ -254,6 +256,30 @@ contract Precompiler {
             bytes32 hash = bytes32(gas_used);
             (bool ok,) = address(0x100).staticcall(abi.encode(hash, r, s, x, y));
             require(ok, "p256Verify failed");
+            gas_used = start_gas - gasleft();
+        }
+    }
+
+    function run_g1add(uint256 gas_target) private {
+        uint256 start_gas = gasleft();
+        uint256 gas_used = 0;
+
+        bytes32[4] memory p1;
+        p1[0] = 0x0000000000000000000000000000000017f1d3a73197d7942695638c4fa9ac0f;
+        p1[1] = 0xc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb;
+        p1[2] = 0x0000000000000000000000000000000008b3f481e3aaa0f1a09e30ed741d8ae4;
+        p1[3] = 0xfcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1;
+
+        bytes32[4] memory p2;
+        p2[0] = 0x00000000000000000000000000000000112b98340eee2777cc3c14163dea3ec9;
+        p2[1] = 0x7977ac3dc5c70da32e6e87578f44912e902ccef9efe28d4a78b8999dfbca9426;
+        p2[2] = 0x00000000000000000000000000000000186b28d92356c4dfec4b5201ad099dbd;
+        p2[3] = 0xede3781f8998ddf929b4cd7756192185ca7b8f4ef7088f813270ac3d48868a21;
+
+        while (gas_used < gas_target) {
+            (bool ok, bytes memory result) = address(11).staticcall(abi.encode(p1, p2));
+            require(ok, "G1Add failed");
+            p2 = abi.decode(result, (bytes32[4]));
             gas_used = start_gas - gasleft();
         }
     }

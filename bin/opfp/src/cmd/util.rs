@@ -138,6 +138,9 @@ pub struct RollupConfig {
     /// The interop activation time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interop_time: Option<u64>,
+    /// The holocene_time activation time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holocene_time: Option<u64>,
     /// The batch inbox address.
     pub batch_inbox_address: Address,
     /// The deposit contract address.
@@ -182,6 +185,7 @@ impl From<&superchain_primitives::RollupConfig> for RollupConfig {
             fjord_time: cfg.fjord_time,
             granite_time: cfg.granite_time,
             interop_time: None,
+            holocene_time: cfg.holocene_time,
             batch_inbox_address: cfg.batch_inbox_address,
             deposit_contract_address: cfg.deposit_contract_address,
             l1_system_config_address: cfg.l1_system_config_address,
@@ -227,7 +231,7 @@ impl Into<superchain_primitives::RollupConfig> for RollupConfig {
             ecotone_time: self.ecotone_time,
             fjord_time: self.fjord_time,
             granite_time: self.granite_time,
-            holocene_time: None,
+            holocene_time: self.holocene_time,
             batch_inbox_address: self.batch_inbox_address,
             deposit_contract_address: self.deposit_contract_address,
             l1_system_config_address: self.l1_system_config_address,

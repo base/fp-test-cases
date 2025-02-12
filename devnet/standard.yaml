@@ -6,6 +6,9 @@ optimism_package:
       network_params:
         granite_time_offset: 0
 ethereum_package:
+  participants:
+  - el_type: geth
+    cl_type: teku
   network_params:
     preset: minimal
     additional_preloaded_contracts: '

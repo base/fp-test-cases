@@ -13,6 +13,7 @@ use std::{env, path::PathBuf};
 use tracing::{debug, error, info, trace, warn};
 
 use super::util::{RollupConfig, VersionedState};
+use crate::cmd::util::HasStep;
 
 /// The logging target to use for [tracing].
 const TARGET: &str = "run-op-program";
@@ -191,7 +192,7 @@ impl CannonCommand {
         let versioned_state = VersionedState::try_from(data)
             .map_err(|e| eyre!("Failed to decode versioned state: {}", e))?;
         let output: CannonOutput = CannonOutput {
-            step: versioned_state.single_threaded_fpvmstate.step,
+            step: versioned_state.state.step(),
         };
 
         let debug_output = std::fs::read_to_string(&self.debug)

@@ -285,10 +285,13 @@ pub struct SystemConfig {
     pub gas_limit: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub trait HasStep {
+    fn step(&self) -> u64;
+}
+
 pub struct VersionedState {
     pub version: u8,
-    pub single_threaded_fpvmstate: SingleThreadedFPVMState,
+    pub state: Box<dyn HasStep>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -307,6 +310,66 @@ pub struct SingleThreadedFPVMState {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MultiThreadedV2State {
+    pub memory: Memory,
+    pub preimage_key: B256,
+    // assuming 32-bit machine
+    pub perimage_offset: u32,
+    pub heap: u32,
+    pub ll_reservation_status: u8,
+    pub ll_address: u32,
+    pub ll_owner_thread: u32,
+    pub exit_code: u8,
+    pub exited: bool,
+    pub step: u64,
+    pub steps_since_last_context_switch: u64,
+    pub traverse_right: bool,
+    pub left_thread_stack: Vec<ThreadState>,
+    pub right_thread_stack: Vec<ThreadState>,
+    pub next_thread_id: u32,
+    pub last_hint: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MultiThreaded64V3 {
+    pub memory: Memory,
+    pub preimage_key: B256,
+    // assuming 32-bit machine
+    pub perimage_offset: u64,
+    pub heap: u64,
+    pub ll_reservation_status: u8,
+    pub ll_address: u64,
+    pub ll_owner_thread: u64,
+    pub exit_code: u8,
+    pub exited: bool,
+    pub step: u64,
+    pub steps_since_last_context_switch: u64,
+    pub traverse_right: bool,
+    pub left_thread_stack: Vec<ThreadState64>,
+    pub right_thread_stack: Vec<ThreadState64>,
+    pub next_thread_id: u64,
+    pub last_hint: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ThreadState {
+    pub thread_id: u32,
+    pub exit_code: u8,
+    pub exited: bool,
+    pub cpu: CpuScalars,
+    pub registers: [u32; 32],
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ThreadState64 {
+    pub thread_id: u64,
+    pub exit_code: u8,
+    pub exited: bool,
+    pub cpu: CpuScalars64,
+    pub registers: [u64; 32],
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Memory {
     pub pages: HashMap<u32, [u8; 4096]>,
 }
@@ -319,6 +382,33 @@ pub struct CpuScalars {
     pub hi: u32,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CpuScalars64 {
+    pub pc: u64,
+    pub next_pc: u64,
+    pub lo: u64,
+    pub hi: u64,
+}
+
+enum CannonVersion {
+    SingleThreaded2 = 2,
+    MultiThreadedV2 = 5,
+    MultiThreaded64V3 = 6,
+}
+
+impl TryFrom<u8> for CannonVersion {
+    type Error = String;
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            2 => Ok(CannonVersion::SingleThreaded2),
+            5 => Ok(CannonVersion::MultiThreadedV2),
+            6 => Ok(CannonVersion::MultiThreaded64V3),
+            _ => Err(format!("invalid cannon state version: {v}").to_string()),
+        }
+    }
+}
+
 trait Decodable {
     fn decode<T>(&mut self, cursor: &mut Cursor<T>) -> Result<()>
     where
@@ -329,7 +419,10 @@ impl TryFrom<Vec<u8>> for VersionedState {
     type Error = String;
 
     fn try_from(buffer: Vec<u8>) -> Result<Self, Self::Error> {
-        let mut v = VersionedState::default();
+        let mut v = VersionedState {
+            version: 0,
+            state: Box::new(SingleThreadedFPVMState::default()),
+        };
         let mut cursor = Cursor::new(buffer);
         let result = v.decode(&mut cursor);
         return match result {
@@ -345,7 +438,28 @@ impl Decodable for VersionedState {
         T: AsRef<[u8]>,
     {
         self.version = cursor.read_u8()?;
-        self.single_threaded_fpvmstate.decode(cursor)
+
+        let version_state_cannon = CannonVersion::try_from(self.version).unwrap();
+        match version_state_cannon {
+            CannonVersion::SingleThreaded2 => {
+                let mut single_threaded_fpvmstate = SingleThreadedFPVMState::default();
+                single_threaded_fpvmstate.decode(cursor)?;
+                self.state = Box::new(single_threaded_fpvmstate);
+                Ok(())
+            }
+            CannonVersion::MultiThreadedV2 => {
+                let mut mutli_threaded_v2 = MultiThreadedV2State::default();
+                mutli_threaded_v2.decode(cursor)?;
+                self.state = Box::new(mutli_threaded_v2);
+                Ok(())
+            }
+            CannonVersion::MultiThreaded64V3 => {
+                let mut mutli_threaded_64_v3 = MultiThreaded64V3::default();
+                mutli_threaded_64_v3.decode(cursor)?;
+                self.state = Box::new(mutli_threaded_64_v3);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -388,6 +502,138 @@ impl Decodable for SingleThreadedFPVMState {
     }
 }
 
+impl HasStep for SingleThreadedFPVMState {
+    fn step(&self) -> u64 {
+        self.step
+    }
+}
+
+impl Decodable for MultiThreadedV2State {
+    fn decode<T>(&mut self, cursor: &mut Cursor<T>) -> Result<()>
+    where
+        T: AsRef<[u8]>,
+    {
+        self.memory.decode(cursor)?;
+
+        let mut preimage_key_buffer: [u8; 32] = [0; 32];
+        cursor.read_exact(&mut preimage_key_buffer)?;
+        self.preimage_key = B256::from(&preimage_key_buffer);
+        self.perimage_offset = cursor.read_u32::<BigEndian>()?;
+
+        self.heap = cursor.read_u32::<BigEndian>()?;
+
+        self.ll_reservation_status = cursor.read_u8()?;
+        self.ll_address = cursor.read_u32::<BigEndian>()?;
+        self.ll_owner_thread = cursor.read_u32::<BigEndian>()?;
+
+        self.exit_code = cursor.read_u8()?;
+        self.exited = cursor.read_u8()? != 0;
+
+        self.step = cursor.read_u64::<BigEndian>()?;
+        self.steps_since_last_context_switch = cursor.read_u64::<BigEndian>()?;
+
+        self.traverse_right = cursor.read_u8()? != 0;
+        self.next_thread_id = cursor.read_u32::<BigEndian>()?;
+
+        let left_thread_stack_size = cursor.read_u32::<BigEndian>()?;
+        let mut left_thread_stack = Vec::new();
+        for _ in 0..left_thread_stack_size {
+            let mut thread_state = ThreadState::default();
+            thread_state.decode(cursor)?;
+            left_thread_stack.push(thread_state);
+        }
+        self.left_thread_stack = left_thread_stack;
+
+        let right_thread_stack_size = cursor.read_u32::<BigEndian>()?;
+        let mut right_thread_stack = Vec::new();
+        for _ in 0..right_thread_stack_size {
+            let mut thread_state = ThreadState::default();
+            thread_state.decode(cursor)?;
+            right_thread_stack.push(thread_state);
+        }
+        self.right_thread_stack = right_thread_stack;
+
+        let last_hint_len = cursor.read_u32::<BigEndian>()?;
+        if last_hint_len > 0 {
+            let mut slice = vec![0; last_hint_len.try_into().unwrap()];
+            cursor.read_exact(&mut slice)?;
+
+            self.last_hint = slice;
+        }
+
+        Ok(())
+    }
+}
+
+impl HasStep for MultiThreadedV2State {
+    fn step(&self) -> u64 {
+        self.step
+    }
+}
+
+impl Decodable for MultiThreaded64V3 {
+    fn decode<T>(&mut self, cursor: &mut Cursor<T>) -> Result<()>
+    where
+        T: AsRef<[u8]>,
+    {
+        self.memory.decode(cursor)?;
+
+        let mut preimage_key_buffer: [u8; 32] = [0; 32];
+        cursor.read_exact(&mut preimage_key_buffer)?;
+        self.preimage_key = B256::from(&preimage_key_buffer);
+        self.perimage_offset = cursor.read_u64::<BigEndian>()?;
+
+        self.heap = cursor.read_u64::<BigEndian>()?;
+
+        self.ll_reservation_status = cursor.read_u8()?;
+        self.ll_address = cursor.read_u64::<BigEndian>()?;
+        self.ll_owner_thread = cursor.read_u64::<BigEndian>()?;
+
+        self.exit_code = cursor.read_u8()?;
+        self.exited = cursor.read_u8()? != 0;
+
+        self.step = cursor.read_u64::<BigEndian>()?;
+        self.steps_since_last_context_switch = cursor.read_u64::<BigEndian>()?;
+
+        self.traverse_right = cursor.read_u8()? != 0;
+        self.next_thread_id = cursor.read_u64::<BigEndian>()?;
+
+        let left_thread_stack_size = cursor.read_u64::<BigEndian>()?;
+        let mut left_thread_stack = Vec::new();
+        for _ in 0..left_thread_stack_size {
+            let mut thread_state_64 = ThreadState64::default();
+            thread_state_64.decode(cursor)?;
+            left_thread_stack.push(thread_state_64);
+        }
+        self.left_thread_stack = left_thread_stack;
+
+        let right_thread_stack_size = cursor.read_u64::<BigEndian>()?;
+        let mut right_thread_stack = Vec::new();
+        for _ in 0..right_thread_stack_size {
+            let mut thread_state_64 = ThreadState64::default();
+            thread_state_64.decode(cursor)?;
+            right_thread_stack.push(thread_state_64);
+        }
+        self.right_thread_stack = right_thread_stack;
+
+        let last_hint_len = cursor.read_u32::<BigEndian>()?;
+        if last_hint_len > 0 {
+            let mut slice = vec![0; last_hint_len.try_into().unwrap()];
+            cursor.read_exact(&mut slice)?;
+
+            self.last_hint = slice;
+        }
+
+        Ok(())
+    }
+}
+
+impl HasStep for MultiThreaded64V3 {
+    fn step(&self) -> u64 {
+        self.step
+    }
+}
+
 impl Decodable for Memory {
     fn decode<T>(&mut self, cursor: &mut Cursor<T>) -> Result<()>
     where
@@ -404,6 +650,50 @@ impl Decodable for Memory {
             let mut data: [u8; 4096] = [0; 4096];
             cursor.read_exact(&mut data)?;
             self.pages.insert(page_index, data);
+        }
+
+        Ok(())
+    }
+}
+
+impl Decodable for ThreadState {
+    fn decode<T>(&mut self, cursor: &mut Cursor<T>) -> Result<()>
+    where
+        T: AsRef<[u8]>,
+    {
+        self.thread_id = cursor.read_u32::<BigEndian>()?;
+        self.exit_code = cursor.read_u8()?;
+        self.exited = cursor.read_u8()? != 0;
+
+        self.cpu.pc = cursor.read_u32::<BigEndian>()?;
+        self.cpu.next_pc = cursor.read_u32::<BigEndian>()?;
+        self.cpu.lo = cursor.read_u32::<BigEndian>()?;
+        self.cpu.hi = cursor.read_u32::<BigEndian>()?;
+
+        for i in 0..self.registers.len() {
+            self.registers[i] = cursor.read_u32::<BigEndian>()?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Decodable for ThreadState64 {
+    fn decode<T>(&mut self, cursor: &mut Cursor<T>) -> Result<()>
+    where
+        T: AsRef<[u8]>,
+    {
+        self.thread_id = cursor.read_u64::<BigEndian>()?;
+        self.exit_code = cursor.read_u8()?;
+        self.exited = cursor.read_u8()? != 0;
+
+        self.cpu.pc = cursor.read_u64::<BigEndian>()?;
+        self.cpu.next_pc = cursor.read_u64::<BigEndian>()?;
+        self.cpu.lo = cursor.read_u64::<BigEndian>()?;
+        self.cpu.hi = cursor.read_u64::<BigEndian>()?;
+
+        for i in 0..self.registers.len() {
+            self.registers[i] = cursor.read_u64::<BigEndian>()?;
         }
 
         Ok(())

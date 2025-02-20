@@ -136,11 +136,10 @@ generate-op-succinct-fixture:
     while true; do
         SYNC_STATUS=$(cast rpc optimism_syncStatus --rpc-url $ROLLUP_URL)
         L2_SAFE_BLOCK_NUM=$(echo $SYNC_STATUS | jq '.safe_l2.number')
-        L1_BLOCK_NUM=$(echo $SYNC_STATUS | jq '.head_l1.number')
-        if [ $L2_SAFE_BLOCK_NUM -ge $(($L2_BLOCK_NUM)) ]; then
+        if [ $L2_SAFE_BLOCK_NUM -ge $((L2_BLOCK_NUM + 40)) ]; then
             break
         fi
-        echo "Waiting for L2 block $L2_BLOCK_NUM to be safe..., currently at $L2_SAFE_BLOCK_NUM"
+        echo "Waiting for L2 block $((L2_BLOCK_NUM + 40)) to be safe..., currently at $L2_SAFE_BLOCK_NUM"
         sleep 10
     done
 
@@ -151,8 +150,8 @@ generate-op-succinct-fixture:
     L2_RPC=$L2_RPC_URL \
     L2_NODE_RPC=$ROLLUP_URL \
     {{ opfp }} from-op-succinct \
-        --l2-start-block $((L2_BLOCK_NUM - 40)) \
-        --l2-end-block $((L2_BLOCK_NUM - 39)) \
+        --l2-start-block $((L2_BLOCK_NUM)) \
+        --l2-end-block $((L2_BLOCK_NUM + 1)) \
         --output {{ fixture-file }} \
         {{ verbosity }}
 
@@ -168,8 +167,6 @@ run-fixture:
         {{ verbosity }}
 
 run-op-succinct-fixture:
-    mkdir -p {{ parent_directory(op-program-output) }}
-
     {{ opfp }} run-op-succinct \
         --fixture {{ fixture-file }} \
         {{ verbosity }}

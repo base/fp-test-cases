@@ -4,6 +4,7 @@ use std::fs::File;
 
 use clap::Parser;
 use color_eyre::{eyre::eyre, Result};
+use op_succinct_client_utils::boot::BootInfoStruct;
 use sp1_sdk::ProverClient;
 
 use crate::cmd::run_op_program::ProgramStats;
@@ -30,12 +31,15 @@ impl RunOpSuccinct {
         let stdin = serde_json::from_reader(file)?;
         let start = std::time::Instant::now();
 
-        let (_, execution_report) = prover
+        let (mut public_values, execution_report) = prover
             .execute(RANGE_ELF, &stdin)
             .run()
             .map_err(|err| eyre!("{err}"))?;
 
         let runtime = start.elapsed().as_millis();
+
+        let _ = public_values.read::<BootInfoStruct>();
+        let memory_used = public_values.read::<usize>();
 
         println!("{execution_report}");
 
@@ -43,7 +47,7 @@ impl RunOpSuccinct {
             runtime,
             instructions: Some(execution_report.total_instruction_count()),
             pages: None,
-            memory_used: None,
+            memory_used: Some(memory_used as u64),
             num_preimage_requests: None,
             total_preimage_size: None,
         };

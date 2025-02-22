@@ -40,5 +40,6 @@ kona-providers-alloy.workspace = true
 kona-host.workspace = true
 
 # OP Succinct
+op-succinct-client-utils.workspace = true
 op-succinct-host-utils.workspace = true
 sp1-sdk.workspace = true

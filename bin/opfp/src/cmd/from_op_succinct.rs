@@ -8,6 +8,7 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin, start_server_and_native_client, ProgramType,
 };
+use tracing::info;
 
 use super::from_common::FromComon;
 
@@ -48,6 +49,7 @@ impl FromOpSuccinct {
         let stdin = get_proof_stdin(oracle).map_err(|err| eyre!("{err}"))?;
 
         let mut file = File::create(&self.common.output)?;
+        info!("Persist fixture to {:?}", self.common.output);
         serde_json::to_writer(&mut file, &stdin)?;
 
         Ok(())

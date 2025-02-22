@@ -3990,6 +3990,7 @@ dependencies = [
  "maili-genesis",
  "maili-protocol",
  "maili-registry",
+ "op-succinct-client-utils",
  "op-succinct-host-utils",
  "reqwest",
  "serde",

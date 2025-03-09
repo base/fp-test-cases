@@ -44,9 +44,11 @@ kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0
 kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.9" }
 
 # OP Succinct
-op-succinct-host-utils = { git = "https://github.com/succinctlabs/op-succinct", rev = "3ff43fa52c6451e5cbf857a65c3e4120e7a48008" }
-op-succinct-client-utils = { git = "https://github.com/succinctlabs/op-succinct", rev = "3ff43fa52c6451e5cbf857a65c3e4120e7a48008" }
-sp1-sdk = { version = "4.1.0" }
+op-succinct-host-utils = { git = "https://github.com/succinctlabs/op-succinct", tag = "v2.0.0-alpha-1" }
+op-succinct-client-utils = { git = "https://github.com/succinctlabs/op-succinct", tag = "v2.0.0-alpha-1" }
+
+# SP1
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "9f202bf" }
 
 # Internal
 fp-test-fixtures = { path = "crates/fp-test-fixtures" }

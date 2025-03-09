@@ -5,14 +5,12 @@ use std::fs::File;
 use clap::Parser;
 use color_eyre::{eyre::eyre, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_host_utils::RANGE_ELF_BUMP;
 use sp1_sdk::ProverClient;
 
 use crate::cmd::run_op_program::ProgramStats;
 
 use super::run_common::RunCommon;
-
-/// ELF binary for the `range` exe.
-pub const RANGE_ELF: &[u8] = include_bytes!("../elf/range-elf");
 
 /// CLI arguments for the `run-op-succinct` subcommand of `opfp`.
 #[derive(Parser, Clone, Debug)]
@@ -32,7 +30,7 @@ impl RunOpSuccinct {
         let start = std::time::Instant::now();
 
         let (mut public_values, execution_report) = prover
-            .execute(RANGE_ELF, &stdin)
+            .execute(RANGE_ELF_BUMP, &stdin)
             .run()
             .map_err(|err| eyre!("{err}"))?;
 

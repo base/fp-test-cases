@@ -5,8 +5,8 @@ use std::fs::File;
 use clap::Parser;
 use color_eyre::{eyre::eyre, Result};
 use op_succinct_host_utils::{
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin, start_server_and_native_client, ProgramType,
+    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    get_proof_stdin, start_server_and_native_client,
 };
 use tracing::info;
 
@@ -29,7 +29,7 @@ pub struct FromOpSuccinct {
 impl FromOpSuccinct {
     /// Runs the from-op-succinct subcommand.
     pub async fn run(&self) -> Result<()> {
-        let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev)
+        let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
             .await
             .map_err(|err| eyre!(Box::new(err)))?;
 
@@ -37,7 +37,7 @@ impl FromOpSuccinct {
             .get_host_args(
                 self.l2_start_block,
                 self.l2_end_block,
-                ProgramType::Multi,
+                None,
                 CacheMode::KeepCache,
             )
             .await

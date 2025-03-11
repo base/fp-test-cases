@@ -9,9 +9,9 @@ use fp_test_fixtures::{
     self, ChainDefinition, FaultProofFixture, FaultProofInputs, FaultProofStatus, Genesis,
 };
 use kona_derive::traits::ChainProvider;
+use kona_protocol::BatchValidationProvider;
 use kona_providers_alloy::{AlloyChainProvider, AlloyL2ChainProvider};
-use maili_protocol::BatchValidationProvider;
-use maili_registry::ROLLUP_CONFIGS;
+use kona_registry::ROLLUP_CONFIGS;
 use reqwest::Url;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -242,7 +242,7 @@ impl FromOpProgram {
     /// Returns a new [AlloyL2ChainProvider] using the l2 rpc url.
     pub fn l2_provider(
         &self,
-        cfg: Arc<maili_genesis::RollupConfig>,
+        cfg: Arc<kona_genesis::RollupConfig>,
     ) -> Result<AlloyL2ChainProvider> {
         Ok(AlloyL2ChainProvider::new_http(self.l2_rpc_url()?, cfg))
     }

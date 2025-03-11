@@ -3,6 +3,7 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::{Provider, RootProvider};
 use byteorder::{BigEndian, ReadBytesExt};
 use color_eyre::Result;
+use kona_genesis::{BaseFeeConfig, HardForkConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
@@ -158,8 +159,8 @@ pub struct RollupConfig {
     pub da_challenge_address: Option<Address>,
 }
 
-impl From<&maili_genesis::RollupConfig> for RollupConfig {
-    fn from(cfg: &maili_genesis::RollupConfig) -> Self {
+impl From<&kona_genesis::RollupConfig> for RollupConfig {
+    fn from(cfg: &kona_genesis::RollupConfig) -> Self {
         let syscfg = cfg.genesis.system_config.unwrap();
         let genesis = Genesis {
             l1: cfg.genesis.l1.into(),
@@ -181,15 +182,15 @@ impl From<&maili_genesis::RollupConfig> for RollupConfig {
             // channel_timeout_granite: cfg.granite_channel_timeout,
             l1_chain_id: Some(cfg.l1_chain_id.into()),
             l2_chain_id: Some(cfg.l2_chain_id.into()),
-            regolith_time: cfg.regolith_time,
-            canyon_time: cfg.canyon_time,
-            delta_time: cfg.delta_time,
-            ecotone_time: cfg.ecotone_time,
-            fjord_time: cfg.fjord_time,
-            granite_time: cfg.granite_time,
+            regolith_time: cfg.hardforks.regolith_time,
+            canyon_time: cfg.hardforks.canyon_time,
+            delta_time: cfg.hardforks.delta_time,
+            ecotone_time: cfg.hardforks.ecotone_time,
+            fjord_time: cfg.hardforks.fjord_time,
+            granite_time: cfg.hardforks.granite_time,
             interop_time: None,
-            holocene_time: cfg.holocene_time,
-            isthmus_time: cfg.isthmus_time,
+            holocene_time: cfg.hardforks.holocene_time,
+            isthmus_time: cfg.hardforks.isthmus_time,
             batch_inbox_address: cfg.batch_inbox_address,
             deposit_contract_address: cfg.deposit_contract_address,
             l1_system_config_address: cfg.l1_system_config_address,
@@ -202,14 +203,14 @@ impl From<&maili_genesis::RollupConfig> for RollupConfig {
     }
 }
 
-impl Into<maili_genesis::RollupConfig> for RollupConfig {
-    fn into(self) -> maili_genesis::RollupConfig {
-        maili_genesis::RollupConfig {
-            genesis: maili_genesis::ChainGenesis {
+impl Into<kona_genesis::RollupConfig> for RollupConfig {
+    fn into(self) -> kona_genesis::RollupConfig {
+        kona_genesis::RollupConfig {
+            genesis: kona_genesis::ChainGenesis {
                 l1: self.genesis.l1.into(),
                 l2: self.genesis.l2.into(),
                 l2_time: self.genesis.l2_time,
-                system_config: Some(maili_genesis::SystemConfig {
+                system_config: Some(kona_genesis::SystemConfig {
                     batcher_address: self.genesis.system_config.batcher_addr,
                     overhead: self.genesis.system_config.overhead.into(),
                     scalar: self.genesis.system_config.scalar.into(),
@@ -229,17 +230,17 @@ impl Into<maili_genesis::RollupConfig> for RollupConfig {
             granite_channel_timeout: 50,
             l1_chain_id: u64::try_from(self.l1_chain_id.unwrap_or(0)).unwrap(),
             l2_chain_id: u64::try_from(self.l2_chain_id.unwrap_or(0)).unwrap(),
-            base_fee_params: BaseFeeParams::optimism(),
-            canyon_base_fee_params: BaseFeeParams::optimism_canyon(),
-            regolith_time: self.regolith_time,
-            canyon_time: self.canyon_time,
-            delta_time: self.delta_time,
-            ecotone_time: self.ecotone_time,
-            fjord_time: self.fjord_time,
-            granite_time: self.granite_time,
-            holocene_time: self.holocene_time,
-            isthmus_time: self.isthmus_time,
-            interop_time: None,
+            hardforks: HardForkConfig {
+                regolith_time: self.regolith_time,
+                canyon_time: self.canyon_time,
+                delta_time: self.delta_time,
+                ecotone_time: self.ecotone_time,
+                fjord_time: self.fjord_time,
+                granite_time: self.granite_time,
+                holocene_time: self.holocene_time,
+                isthmus_time: self.isthmus_time,
+                interop_time: None,
+            },
             batch_inbox_address: self.batch_inbox_address,
             deposit_contract_address: self.deposit_contract_address,
             l1_system_config_address: self.l1_system_config_address,
@@ -248,6 +249,8 @@ impl Into<maili_genesis::RollupConfig> for RollupConfig {
             blobs_enabled_l1_timestamp: None,
             da_challenge_address: self.da_challenge_address,
             interop_message_expiry_window: 50,
+            alt_da_config: None,
+            chain_op_config: BaseFeeConfig::optimism(),
         }
     }
 }

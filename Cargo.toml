@@ -30,14 +30,31 @@ byteorder = "1.5.0"
 
 # Alloy Dependencies
 alloy-primitives = { version = "0.8" }
-alloy-eips = { version = "0.3" }
-alloy-provider = { version = "0.2" }
+alloy-eips = { version = "0.11.0" }
+alloy-provider = { version = "0.11.0" }
+
+# Maili
+maili-genesis = "0.2.8"
+maili-protocol = "0.2.8"
+maili-registry = "0.2.8"
 
 # OP Types
-superchain-registry = "0.3.4"
-superchain-primitives = "0.3.4"
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona", version = "0.0.2", features = ["online"] }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", version = "0.0.3", features = ["online"] }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "223d1ba" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "223d1ba" }
+kona-genesis = { git = "https://github.com/op-rs/kona", rev = "223d1ba" }
+kona-protocol = { git = "https://github.com/op-rs/kona", rev = "223d1ba" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "223d1ba" }
+kona-registry = { git = "https://github.com/op-rs/kona", rev = "223d1ba" }
+
+
+# OP Succinct
+op-succinct-host-utils = { git = "https://github.com/succinctlabs/op-succinct", rev = "3189e6e" }
+op-succinct-client-utils = { git = "https://github.com/succinctlabs/op-succinct", rev = "3189e6e" }
+
+# SP1
+sp1-sdk = "4.1.3"
+sp1-core-executor = "4.1.3"
 
 # Internal
 fp-test-fixtures = { path = "crates/fp-test-fixtures" }
+

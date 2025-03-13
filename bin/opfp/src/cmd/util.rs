@@ -1,8 +1,9 @@
 use alloy_eips::eip1559::BaseFeeParams;
 use alloy_primitives::{Address, B256};
-use alloy_provider::{Provider, ReqwestProvider};
+use alloy_provider::{Provider, RootProvider};
 use byteorder::{BigEndian, ReadBytesExt};
 use color_eyre::Result;
+use kona_genesis::{BaseFeeConfig, HardForkConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
@@ -56,12 +57,12 @@ pub struct SafeHeadResponse {
 #[derive(Debug)]
 pub struct RollupProvider {
     /// The inner Ethereum JSON-RPC provider.
-    inner: ReqwestProvider,
+    inner: RootProvider,
 }
 
 impl RollupProvider {
     /// Creates a new [RollupProvider] with the given alloy provider.
-    pub fn new(inner: ReqwestProvider) -> Self {
+    pub fn new(inner: RootProvider) -> Self {
         Self { inner }
     }
 
@@ -90,7 +91,7 @@ impl RollupProvider {
     /// Creates a new [RollupProvider] from the provided [reqwest::Url].
     pub fn new_http(url: reqwest::Url) -> Self {
         // let pb = ProviderBuilder::default().
-        let inner = ReqwestProvider::new_http(url);
+        let inner = RootProvider::new_http(url);
         Self::new(inner)
     }
 }
@@ -110,10 +111,10 @@ pub struct RollupConfig {
     /// The channel timeout beginning with bedrock.
     #[serde(rename = "channel_timeout")]
     pub channel_timeout_bedrock: u64,
-    // The L1 chain ID.
+    /// The L1 chain ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub l1_chain_id: Option<u128>,
-    // The L2 chain ID.
+    /// The L2 chain ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub l2_chain_id: Option<u128>,
 
@@ -138,9 +139,12 @@ pub struct RollupConfig {
     /// The interop activation time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interop_time: Option<u64>,
-    /// The holocene_time activation time.
+    /// The holocene activation time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub holocene_time: Option<u64>,
+    /// The isthmus activation time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isthmus_time: Option<u64>,
     /// The batch inbox address.
     pub batch_inbox_address: Address,
     /// The deposit contract address.
@@ -155,9 +159,9 @@ pub struct RollupConfig {
     pub da_challenge_address: Option<Address>,
 }
 
-impl From<&superchain_primitives::RollupConfig> for RollupConfig {
-    fn from(cfg: &superchain_primitives::RollupConfig) -> Self {
-        let syscfg = cfg.genesis.system_config.clone().unwrap();
+impl From<&kona_genesis::RollupConfig> for RollupConfig {
+    fn from(cfg: &kona_genesis::RollupConfig) -> Self {
+        let syscfg = cfg.genesis.system_config.unwrap();
         let genesis = Genesis {
             l1: cfg.genesis.l1.into(),
             l2: cfg.genesis.l2.into(),
@@ -169,8 +173,8 @@ impl From<&superchain_primitives::RollupConfig> for RollupConfig {
                 gas_limit: syscfg.gas_limit,
             },
         };
-        let rollup_config = Self {
-            genesis: genesis.clone(),
+        Self {
+            genesis,
             block_time: cfg.block_time,
             max_sequencer_drift: cfg.max_sequencer_drift,
             seq_window_size: cfg.seq_window_size,
@@ -178,14 +182,15 @@ impl From<&superchain_primitives::RollupConfig> for RollupConfig {
             // channel_timeout_granite: cfg.granite_channel_timeout,
             l1_chain_id: Some(cfg.l1_chain_id.into()),
             l2_chain_id: Some(cfg.l2_chain_id.into()),
-            regolith_time: cfg.regolith_time,
-            canyon_time: cfg.canyon_time,
-            delta_time: cfg.delta_time,
-            ecotone_time: cfg.ecotone_time,
-            fjord_time: cfg.fjord_time,
-            granite_time: cfg.granite_time,
+            regolith_time: cfg.hardforks.regolith_time,
+            canyon_time: cfg.hardforks.canyon_time,
+            delta_time: cfg.hardforks.delta_time,
+            ecotone_time: cfg.hardforks.ecotone_time,
+            fjord_time: cfg.hardforks.fjord_time,
+            granite_time: cfg.hardforks.granite_time,
             interop_time: None,
-            holocene_time: cfg.holocene_time,
+            holocene_time: cfg.hardforks.holocene_time,
+            isthmus_time: cfg.hardforks.isthmus_time,
             batch_inbox_address: cfg.batch_inbox_address,
             deposit_contract_address: cfg.deposit_contract_address,
             l1_system_config_address: cfg.l1_system_config_address,
@@ -194,26 +199,28 @@ impl From<&superchain_primitives::RollupConfig> for RollupConfig {
             // da_challenge_window: 0,
             // da_resolve_window: 0,
             // use_plasma: false,
-        };
-        rollup_config
+        }
     }
 }
 
-impl Into<superchain_primitives::RollupConfig> for RollupConfig {
-    fn into(self) -> superchain_primitives::RollupConfig {
-        superchain_primitives::RollupConfig {
-            genesis: superchain_primitives::ChainGenesis {
+impl Into<kona_genesis::RollupConfig> for RollupConfig {
+    fn into(self) -> kona_genesis::RollupConfig {
+        kona_genesis::RollupConfig {
+            genesis: kona_genesis::ChainGenesis {
                 l1: self.genesis.l1.into(),
                 l2: self.genesis.l2.into(),
                 l2_time: self.genesis.l2_time,
-                extra_data: None,
-                system_config: Some(superchain_primitives::SystemConfig {
+                system_config: Some(kona_genesis::SystemConfig {
                     batcher_address: self.genesis.system_config.batcher_addr,
                     overhead: self.genesis.system_config.overhead.into(),
                     scalar: self.genesis.system_config.scalar.into(),
                     gas_limit: self.genesis.system_config.gas_limit,
                     base_fee_scalar: None,
                     blob_base_fee_scalar: None,
+                    eip1559_denominator: None,
+                    eip1559_elasticity: None,
+                    operator_fee_scalar: None,
+                    operator_fee_constant: None,
                 }),
             },
             block_time: self.block_time,
@@ -223,15 +230,17 @@ impl Into<superchain_primitives::RollupConfig> for RollupConfig {
             granite_channel_timeout: 50,
             l1_chain_id: u64::try_from(self.l1_chain_id.unwrap_or(0)).unwrap(),
             l2_chain_id: u64::try_from(self.l2_chain_id.unwrap_or(0)).unwrap(),
-            base_fee_params: BaseFeeParams::optimism(),
-            canyon_base_fee_params: Some(BaseFeeParams::optimism_canyon()),
-            regolith_time: self.regolith_time,
-            canyon_time: self.canyon_time,
-            delta_time: self.delta_time,
-            ecotone_time: self.ecotone_time,
-            fjord_time: self.fjord_time,
-            granite_time: self.granite_time,
-            holocene_time: self.holocene_time,
+            hardforks: HardForkConfig {
+                regolith_time: self.regolith_time,
+                canyon_time: self.canyon_time,
+                delta_time: self.delta_time,
+                ecotone_time: self.ecotone_time,
+                fjord_time: self.fjord_time,
+                granite_time: self.granite_time,
+                holocene_time: self.holocene_time,
+                isthmus_time: self.isthmus_time,
+                interop_time: None,
+            },
             batch_inbox_address: self.batch_inbox_address,
             deposit_contract_address: self.deposit_contract_address,
             l1_system_config_address: self.l1_system_config_address,
@@ -239,6 +248,9 @@ impl Into<superchain_primitives::RollupConfig> for RollupConfig {
             superchain_config_address: None,
             blobs_enabled_l1_timestamp: None,
             da_challenge_address: self.da_challenge_address,
+            interop_message_expiry_window: 50,
+            alt_da_config: None,
+            chain_op_config: BaseFeeConfig::optimism(),
         }
     }
 }
@@ -257,17 +269,17 @@ pub struct BlockID {
     pub number: u64,
 }
 
-impl Into<superchain_primitives::BlockID> for BlockID {
-    fn into(self) -> superchain_primitives::BlockID {
-        superchain_primitives::BlockID {
-            hash: self.hash,
-            number: self.number,
+impl From<BlockID> for alloy_eips::NumHash {
+    fn from(value: BlockID) -> Self {
+        Self {
+            number: value.number,
+            hash: value.hash,
         }
     }
 }
 
-impl From<superchain_primitives::BlockID> for BlockID {
-    fn from(id: superchain_primitives::BlockID) -> Self {
+impl From<alloy_eips::NumHash> for BlockID {
+    fn from(id: alloy_eips::NumHash) -> Self {
         Self {
             hash: id.hash,
             number: id.number,
@@ -332,10 +344,10 @@ impl TryFrom<Vec<u8>> for VersionedState {
         let mut v = VersionedState::default();
         let mut cursor = Cursor::new(buffer);
         let result = v.decode(&mut cursor);
-        return match result {
+        match result {
             Ok(_) => Ok(v),
             Err(err) => Err(format!("invalid versioned state encoding: {err}").to_string()),
-        };
+        }
     }
 }
 
@@ -413,9 +425,8 @@ impl Decodable for Memory {
 #[cfg(test)]
 mod tests {
     use crate::cmd::util::{CpuScalars, Memory, SingleThreadedFPVMState, VersionedState};
-    use alloy_primitives::{hex, Uint, B256};
+    use alloy_primitives::{hex, B256};
     use std::collections::HashMap;
-    use std::fs;
 
     #[test]
     fn test_decode_versioned_state() {
@@ -455,7 +466,7 @@ mod tests {
             exit_code: 1,
             exited: true,
             step: 0xdeadbeef,
-            registers: registers,
+            registers,
             last_hint: vec![1u8, 2u8, 3u8, 4u8, 5u8],
         };
 
